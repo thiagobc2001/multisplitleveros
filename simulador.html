@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Simulador Multisplit</title>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/file-saver"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(to right, #005A64, #007C6D);
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col text-gray-900">
+  <div class="flex flex-col lg:flex-row h-screen overflow-hidden">
+    <!-- ESQUERDA: Evaporadoras -->
+    <div class="w-full lg:w-1/2 p-8 overflow-auto">
+      <div class="bg-white shadow-xl rounded-2xl p-6 h-full flex flex-col">
+        <h1 class="text-3xl font-bold text-center mb-6 text-[#005A64]">Simulador de Kit Multisplit</h1>
+
+        <div id="evaporadoras" class="grid grid-cols-2 gap-4 mb-6">
+          <!-- Inputs via JS -->
+        </div>
+
+        <div class="mb-4">
+          <label class="block mb-1 font-semibold text-[#005A64]">🔍 Filtro por marca:</label>
+          <select id="marcaFiltro" class="p-2 border border-gray-300 rounded w-full" onchange="filtrarPorMarca()">
+            <option value="">Todas as marcas</option>
+          </select>
+        </div>
+
+        <div class="text-lg font-medium text-center text-[#005A64] mb-4">
+          Total de BTUs: <span id="totalBtus" class="font-bold">0</span>
+        </div>
+
+        <button onclick="gerarCSV()" class="mt-auto px-4 py-3 bg-[#005A64] text-white font-semibold rounded-lg hover:bg-[#003f48] transition">📄 Gerar CSV</button>
+      </div>
+    </div>
+
+    <!-- DIREITA: Condensadoras -->
+    <div class="w-full lg:w-1/2 bg-gray-50 p-8 overflow-auto">
+      <h2 class="text-2xl font-bold text-center mb-6 text-[#005A64]">Condensadoras Compatíveis</h2>
+      <div id="condensadoras" class="grid md:grid-cols-2 gap-6">
+        <!-- Renderizado via JS -->
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const dadosJSON = {
+  "evaporadoras": [
+    {
+      "tipo": "9.000 BTUs",
+      "btus": 9000
+    },
+    {
+      "tipo": "12.000 BTUs",
+      "btus": 12000
+    },
+    {
+      "tipo": "18.000 BTUs",
+      "btus": 18000
+    },
+    {
+      "tipo": "24.000 BTUs",
+      "btus": 24000
+    },
+    {
+      "tipo": "24.000 BTUs",
+      "btus": 18000
+    }
+  ],
+  "condensadoras": [
+    {
+      "modelo": "LG-MULTI48",
+      "min": 18000,
+      "max": 48000,
+      "marca": "LG",
+      "codigo": "LG001"
+    },
+    {
+      "modelo": "Samsung-Triple36",
+      "min": 18000,
+      "max": 36000,
+      "marca": "Samsung",
+      "codigo": "SS036"
+    },
+    {
+      "modelo": "Fujitsu-Pro54",
+      "min": 27000,
+      "max": 54000,
+      "marca": "Fujitsu",
+      "codigo": "FJ054"
+    },
+    {
+      "modelo": "TCL-Smart42",
+      "min": 18000,
+      "max": 42000,
+      "marca": "TCL",
+      "codigo": "TCL42"
+    },
+    {
+      "modelo": "Thi-Teste",
+      "min": 18000,
+      "max": 80000,
+      "marca": "Thiago",
+      "codigo": "THI83"
+    }
+  ]
+};
+
+    let totalBTUs = 0;
+
+    function criarInterface() {
+      const evapDiv = document.getElementById('evaporadoras');
+      dadosJSON.evaporadoras.forEach(item => {
+        evapDiv.innerHTML += `
+          <div class="bg-gray-100 p-3 border border-gray-300 rounded-lg">
+            <label class="block text-sm font-semibold mb-1">${item.tipo}</label>
+            <input type="number" min="0" value="0"
+              class="w-full p-2 border rounded focus:outline-none"
+              onchange="atualizarTotal()" data-btus="${item.btus}" data-tipo="${item.tipo}" />
+          </div>`;
+      });
+
+      const select = document.getElementById('marcaFiltro');
+      [...new Set(dadosJSON.condensadoras.map(c => c.marca))].forEach(marca => {
+        select.innerHTML += `<option value="${marca}">${marca}</option>`;
+      });
+
+      renderizarCondensadoras();
+    }
+
+    function atualizarTotal() {
+      const inputs = document.querySelectorAll('#evaporadoras input');
+      totalBTUs = 0;
+      inputs.forEach(input => {
+        totalBTUs += parseInt(input.value || 0) * parseInt(input.dataset.btus);
+      });
+      document.getElementById('totalBtus').innerText = totalBTUs;
+      renderizarCondensadoras();
+    }
+
+    function renderizarCondensadoras() {
+      const filtro = document.getElementById('marcaFiltro').value;
+      const container = document.getElementById('condensadoras');
+      container.innerHTML = '';
+
+      dadosJSON.condensadoras
+        .filter(c => !filtro || c.marca === filtro)
+        .forEach(cond => {
+          const compativel = totalBTUs >= cond.min && totalBTUs <= cond.max;
+          const cor = compativel ? 'border-green-400 bg-green-50' : 'border-red-400 bg-red-50';
+          container.innerHTML += `
+            <div class="p-4 border-2 rounded-lg shadow-sm ${cor}">
+              <h3 class="text-lg font-bold mb-1">${cond.modelo}</h3>
+              <p><strong>Capacidade:</strong> ${cond.min} - ${cond.max} BTUs</p>
+              <p><strong>Marca:</strong> ${cond.marca}</p>
+              <p><strong>Código:</strong> ${cond.codigo}</p>
+              <p class="mt-1 text-sm font-semibold ${compativel ? 'text-green-700' : 'text-red-700'}">
+                ${compativel ? '✅ Compatível' : '❌ Incompatível'}
+              </p>
+            </div>`;
+        });
+    }
+
+    function filtrarPorMarca() {
+      renderizarCondensadoras();
+    }
+
+    function gerarCSV() {
+      const linhas = [['Tipo Evaporadora', 'Quantidade', 'BTUs Totais']];
+      document.querySelectorAll('#evaporadoras input').forEach(input => {
+        const qtd = parseInt(input.value || 0);
+        if (qtd > 0) {
+          linhas.push([input.dataset.tipo, qtd, qtd * parseInt(input.dataset.btus)]);
+        }
+      });
+      linhas.push(['Total de BTUs', '', totalBTUs]);
+      const blob = new Blob([linhas.map(l => l.join(',')).join('\n')], { type: 'text/csv;charset=utf-8;' });
+      saveAs(blob, 'simulacao_multisplit.csv');
+    }
+
+    criarInterface();
+  </script>
+</body>
+</html>
