@@ -1,2 +1,0 @@
-# multisplitleveros
-Modelo MultiSplit
